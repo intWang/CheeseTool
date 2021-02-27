@@ -8,7 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
-from pypdf import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader, PdfFileWriter
 import uuid
 
 TRY_TIMES = 3
@@ -71,7 +71,7 @@ class PdfConvert(object):
                 os.remove(pdf_file)
             if self.wordApp is None:
                 self.wordApp = CreateObject("Word.Application")
-
+            print("doc 2 pdf : %s save to ")
             office_file = self.wordApp.Documents.Open(in_file, Visible=False, ReadOnly=1)
             office_file.ExportAsFixedFormat(pdf_file, self.wordFormatPDF)
             office_file.Close()
@@ -165,10 +165,15 @@ def create_watermark(content='None',
                      font_size=None,
                      color='black',
                      alpha=0.2,
-                     out_dir='.'):
+                     out_dir='.',
+                     wm_pdf_file=""):
     """
     create PDF watermark file
     """
+    
+    if os.path.exists(wm_pdf_file):
+        return wm_pdf_file
+    
     if not isinstance(pagesize, float):
         pagesize = (float(pagesize[0]), float(pagesize[1]))
 
@@ -289,7 +294,8 @@ def add_watermark(input_file,
                   only_pdf=False,
                   with_date=True,
                   owner_pwd='',
-                  p_value=-2044):
+                  p_value=-2044,
+                  wm_pdf_file=''):
     input_file = os.path.abspath(input_file)
     out_dir = os.path.abspath(out_dir)
     if not os.path.exists(out_dir):
@@ -301,6 +307,7 @@ def add_watermark(input_file,
         wm_content += '|' + date_str
 
     input_file_list = []
+    print("Input file is %s "%(input_file))
     if os.path.isdir(input_file):
         listFiles(input_file, input_file_list, OFFICE_PDF_EXT, True)
         watermark_dir = os.path.join(out_dir, '%s-wm-files' % os.path.basename(input_file))
@@ -320,6 +327,7 @@ def add_watermark(input_file,
         'font_size': font_size,
         'color': color,
         'alpha': alpha,
+        'wm_pdf_file': wm_pdf_file,
     }
 
     pdf_convert = PdfConvert()
@@ -356,6 +364,7 @@ def add_watermark(input_file,
             left_try_times = TRY_TIMES
             while left_try_times > 0:
                 try:
+                    print("Process %s"%src_file);
                     pdf_list = pdf_convert.run_convert(src_file, pdf_save_dir)
                     if pdf_list is not None and len(pdf_list) > 0:
                         if left_try_times != TRY_TIMES:
@@ -414,8 +423,9 @@ def parse_args():
         type=int,
         help='permission value, default(-4092/-2044) permit print only, -1 permit everything, -4096 deny anything',
         default=-2044)
+    parser.add_argument('--wm_pdf_file', type=str, help='watermark pdf file', default=None)
     args = parser.parse_args()
-
+    
     return args
 
 
@@ -427,7 +437,7 @@ if __name__ == '__main__':
 
     if owner_pwd.lower() == 'random':
         owner_pwd = uuid.uuid4().hex
-
+    print("start run")
     wm_attrs = {
         'watermark': args.watermark,
         'angle': args.angle,
@@ -439,6 +449,7 @@ if __name__ == '__main__':
         'with_date': not args.no_date,
         'owner_pwd': owner_pwd,
         'p_value': args.p,
+        'wm_pdf_file': args.wm_pdf_file,
     }
 
     add_watermark(input_file, out_dir, **wm_attrs)
